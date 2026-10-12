@@ -59,25 +59,23 @@ any stronger; the boundary that matters is container versus host.
 ### 2. Make sure KVM is available to Docker
 
 The emulator needs `/dev/kvm`, which WSL 2 provides through nested
-virtualization. Check it in PowerShell:
+virtualization. Recent WSL kernels (6.x) ship the KVM driver as a module that
+is not loaded automatically and is forgotten on every restart of WSL, Docker
+Desktop or Windows. The project therefore loads it for you: `docker compose up`
+first runs a small helper container (`kvm`) that does so.
 
-```powershell
-docker run --rm --device /dev/kvm alpine ls -l /dev/kvm
-```
+You can normally go straight to step 3. Come back here if `docker compose up`
+ends with `service "kvm" didn't complete successfully` or with `error gathering
+device information while adding custom device "/dev/kvm"`.
 
-A line starting with `crw` means you are set; go to step 3.
-
-If you get `error gathering device information while adding custom device
-"/dev/kvm": no such file or directory`, first try loading the KVM driver.
-Recent WSL kernels (6.x) ship it as a module that is not loaded automatically:
+First try loading the driver by hand:
 
 ```powershell
 wsl -d docker-desktop sh -c "modprobe kvm_amd; ls -l /dev/kvm"
 ```
 
 Use `kvm_intel` instead of `kvm_amd` on an Intel CPU. If this prints a line
-starting with `crw`, go to step 3. The driver stays loaded only until the next
-reboot or `wsl --shutdown`, so run this command again after either.
+starting with `crw`, run `docker compose up -d` again.
 
 If `modprobe` fails, nested virtualization is not enabled yet:
 
@@ -105,7 +103,7 @@ If `modprobe` fails, nested virtualization is not enabled yet:
    ```
 
 3. Quit Docker Desktop completely (tray icon → Quit Docker Desktop), start it
-   again, and repeat the `docker run` check above.
+   again, and run `docker compose up -d` once more.
 
 Still failing? See [Troubleshooting](#troubleshooting).
 

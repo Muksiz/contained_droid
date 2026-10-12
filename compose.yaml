@@ -1,8 +1,35 @@
 name: contained-droid
 
 services:
+  # Loads the KVM kernel driver on hosts where nothing else does: Docker
+  # Desktop's WSL 2 VM forgets it on every restart. It needs host privileges
+  # for that one command and exits immediately when /dev/kvm already exists.
+  kvm:
+    image: alpine:3
+    privileged: true
+    pid: host
+    network_mode: none
+    security_opt:
+      - label=disable
+    restart: "no"
+    command:
+      - sh
+      - -c
+      - |
+        [ -e /dev/kvm ] && exit 0
+        module=kvm_intel
+        grep -qw svm /proc/cpuinfo && module=kvm_amd
+        echo "Loading $$module on the Docker host"
+        nsenter -t 1 -m -u -n -i modprobe "$$module"
+        nsenter -t 1 -m test -e /dev/kvm && exit 0
+        echo "ERROR: could not create /dev/kvm. See README.md, step 2." >&2
+        exit 1
+
   droid:
     build: .
+    depends_on:
+      kvm:
+        condition: service_completed_successfully
     image: contained-droid
     container_name: contained-droid
     init: true
