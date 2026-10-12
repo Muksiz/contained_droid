@@ -217,7 +217,26 @@ wsl -d docker-desktop ls -l /dev/kvm
 ```
 
 If this prints `No such file or directory`, the WSL virtual machine itself has
-no KVM. Check that:
+no KVM. Find out why with:
+
+```powershell
+wsl -d docker-desktop sh -c "uname -r; grep -cE 'vmx|svm' /proc/cpuinfo; dmesg | grep -i kvm"
+```
+
+```powershell
+Get-Content $env:USERPROFILE\.wslconfig
+```
+
+```powershell
+(Get-CimInstance Win32_Processor).Name
+```
+
+The first command prints the kernel version and then a count. A count of `0`
+means nested virtualization is not reaching WSL: `.wslconfig` is not being
+picked up, or the CPU, firmware or Windows setup does not offer it. A count
+above 0 without `/dev/kvm` points at an outdated WSL kernel (`wsl --update`).
+
+Then check that:
 
 - virtualization (Intel VT-x / AMD-V, sometimes "SVM") is enabled in the
   BIOS/UEFI — Task Manager → Performance → CPU shows "Virtualization: Enabled";
