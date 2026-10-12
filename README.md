@@ -126,6 +126,9 @@ compose down`), a status view, and Update (`git pull`, then a start with
 Show more options → Send to → Desktop (create shortcut). Use it after the
 first build described above has succeeded once.
 
+On Linux and macOS, `./contained_droid.sh` offers the same menu (and the same
+`start`, `stop`, `status` and `update` arguments), using Docker or Podman.
+
 ### 4. Open the desktop
 
 Browse to <http://localhost:6080>. You get a desktop with two windows: the

@@ -2,3 +2,5 @@
 recordings
 README.md
 *.bat
+contained_droid.sh
+.env
