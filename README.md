@@ -194,7 +194,15 @@ Close REAPER projects (or stop the recorder) before stopping the container.
 
 ## Settings
 
-Edit `environment:` in `compose.yaml`, then run `docker compose up -d`.
+Create a file named `.env` next to `compose.yaml` with the values you want to
+change, one `NAME=value` per line, then run `docker compose up -d`. For example:
+
+```ini
+EMULATOR_CORES=8
+EMULATOR_AUDIO_BUFFER_MS=1000
+```
+
+`.env` is ignored by git, so your settings survive `git pull`.
 
 | Variable             | Default       | Meaning                                              |
 | -------------------- | ------------- | ---------------------------------------------------- |

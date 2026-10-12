@@ -41,12 +41,12 @@ services:
     stop_grace_period: 45s
     ports:
       - "127.0.0.1:6080:6080" # noVNC desktop: http://localhost:6080
-    environment:
-      SCREEN: 1920x1080x24 # width x height x colour depth of the browser desktop
-      EMULATOR_RAM_MB: 4096
-      EMULATOR_CORES: 4
-      EMULATOR_AUDIO_BUFFER_MS: 500 # raise if recordings have dropouts
-      EMULATOR_DATA_SIZE: 16G # only applied when the Android device is first created
+    environment: # override any of these in a .env file next to this one
+      SCREEN: ${SCREEN:-1920x1080x24} # width x height x colour depth of the browser desktop
+      EMULATOR_RAM_MB: ${EMULATOR_RAM_MB:-4096}
+      EMULATOR_CORES: ${EMULATOR_CORES:-4}
+      EMULATOR_AUDIO_BUFFER_MS: ${EMULATOR_AUDIO_BUFFER_MS:-500} # raise if recordings have dropouts
+      EMULATOR_DATA_SIZE: ${EMULATOR_DATA_SIZE:-16G} # only applied when the Android device is first created
     volumes:
       - avd:/home/droid/.android # the Android device (apps, logins, downloads)
       - reaper:/home/droid/.config/REAPER # REAPER settings and licence
