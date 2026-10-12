@@ -59,15 +59,44 @@ any stronger; the boundary that matters is container versus host.
 ### 2. Make sure KVM is available to Docker
 
 The emulator needs `/dev/kvm`, which WSL 2 provides through nested
-virtualization. It is on by default in Windows 11. In PowerShell:
+virtualization. Check it in PowerShell:
 
 ```powershell
-wsl --update
 docker run --rm --device /dev/kvm alpine ls -l /dev/kvm
 ```
 
-If the second command prints a line starting with `crw`, you are set. If it
-fails, see [Troubleshooting](#troubleshooting).
+A line starting with `crw` means you are set; go to step 3.
+
+If you get `error gathering device information while adding custom device
+"/dev/kvm": no such file or directory`, KVM is not enabled yet:
+
+1. Open the WSL settings file:
+
+   ```powershell
+   notepad $env:USERPROFILE\.wslconfig
+   ```
+
+   and make it contain (answer "Yes" if Notepad asks to create the file):
+
+   ```ini
+   [wsl2]
+   nestedVirtualization=true
+   ```
+
+2. Update and restart WSL. Run these as two separate commands:
+
+   ```powershell
+   wsl --update
+   ```
+
+   ```powershell
+   wsl --shutdown
+   ```
+
+3. Quit Docker Desktop completely (tray icon → Quit Docker Desktop), start it
+   again, and repeat the `docker run` check above.
+
+Still failing? See [Troubleshooting](#troubleshooting).
 
 ### 3. Get the project and start it
 
@@ -164,17 +193,39 @@ The Android version is a build argument (`ANDROID_API`, default 34) in the
 
 ## Troubleshooting
 
-**`/dev/kvm` is missing / "error gathering device information"**
-Create or edit `%UserProfile%\.wslconfig`:
+**`/dev/kvm` is still missing after step 2**
+Run these one at a time and compare:
 
-```ini
-[wsl2]
-nestedVirtualization=true
+```powershell
+wsl --version
 ```
 
-then run `wsl --shutdown` and restart Docker Desktop. Also check that
-virtualization (Intel VT-x / AMD-V) is enabled in the BIOS/UEFI and that the
-"Virtual Machine Platform" Windows feature is on.
+The WSL version should be 2.x and the kernel 5.15 or newer. If the command is
+not recognised or reports an old version, install the current WSL from the
+Microsoft Store or with `wsl --update`.
+
+```powershell
+wsl -l -v
+```
+
+`docker-desktop` must be listed with VERSION 2. If it is missing, Docker
+Desktop is using Hyper-V instead: enable Settings → General → "Use the WSL 2
+based engine".
+
+```powershell
+wsl -d docker-desktop ls -l /dev/kvm
+```
+
+If this prints `No such file or directory`, the WSL virtual machine itself has
+no KVM. Check that:
+
+- virtualization (Intel VT-x / AMD-V, sometimes "SVM") is enabled in the
+  BIOS/UEFI — Task Manager → Performance → CPU shows "Virtualization: Enabled";
+- the "Virtual Machine Platform" Windows feature is on (`optionalfeatures.exe`);
+- `.wslconfig` is saved as `%UserProfile%\.wslconfig`, not `.wslconfig.txt`;
+- Windows is not itself running inside a virtual machine (nested
+  virtualization is then usually unavailable);
+- on AMD CPUs, Windows 11 is required (it is) and the CPU is a Ryzen/EPYC.
 
 **The emulator is slow or the recording has dropouts**
 Android is rendered in software, so it needs CPU headroom. Raise
