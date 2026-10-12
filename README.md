@@ -193,7 +193,7 @@ Edit `environment:` in `compose.yaml`, then run `docker compose up -d`.
 
 | Variable             | Default       | Meaning                                              |
 | -------------------- | ------------- | ---------------------------------------------------- |
-| `SCREEN`             | `1600x900x24` | Size of the browser desktop                          |
+| `SCREEN`             | `1920x1080x24` | Size of the browser desktop (width x height x depth) |
 | `EMULATOR_RAM_MB`    | `4096`        | RAM given to Android                                 |
 | `EMULATOR_CORES`     | `4`           | CPU cores given to Android                           |
 | `EMULATOR_AUDIO_BUFFER_MS` | `500`   | Audio buffer between Android and the recorder        |

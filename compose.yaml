@@ -15,7 +15,7 @@ services:
     ports:
       - "127.0.0.1:6080:6080" # noVNC desktop: http://localhost:6080
     environment:
-      SCREEN: 1600x900x24
+      SCREEN: 1920x1080x24 # width x height x colour depth of the browser desktop
       EMULATOR_RAM_MB: 4096
       EMULATOR_CORES: 4
       EMULATOR_AUDIO_BUFFER_MS: 500 # raise if recordings have dropouts
