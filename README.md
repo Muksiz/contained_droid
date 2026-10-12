@@ -68,7 +68,18 @@ docker run --rm --device /dev/kvm alpine ls -l /dev/kvm
 A line starting with `crw` means you are set; go to step 3.
 
 If you get `error gathering device information while adding custom device
-"/dev/kvm": no such file or directory`, KVM is not enabled yet:
+"/dev/kvm": no such file or directory`, first try loading the KVM driver.
+Recent WSL kernels (6.x) ship it as a module that is not loaded automatically:
+
+```powershell
+wsl -d docker-desktop sh -c "modprobe kvm_amd; ls -l /dev/kvm"
+```
+
+Use `kvm_intel` instead of `kvm_amd` on an Intel CPU. If this prints a line
+starting with `crw`, go to step 3. The driver stays loaded only until the next
+reboot or `wsl --shutdown`, so run this command again after either.
+
+If `modprobe` fails, nested virtualization is not enabled yet:
 
 1. Open the WSL settings file:
 

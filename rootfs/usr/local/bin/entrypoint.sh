@@ -1,5 +1,5 @@
 #!/bin/bash
-# Runs as root: prepares devices and directories, then drops to the droid user.
+# Runs as root: prepares devices and directories, then starts the services.
 set -euo pipefail
 
 as_droid() { setpriv --reuid droid --regid droid --init-groups "$@"; }
@@ -30,5 +30,7 @@ for dir in /recordings /home/droid/.android /home/droid/.config/REAPER; do
     as_droid test -w "$dir" || chown droid:droid "$dir"
 done
 
-exec setpriv --reuid droid --regid droid --init-groups \
-    supervisord -c /etc/supervisor/droid.conf
+# supervisord stays root so it can attach the services' output to the
+# container log (Docker refuses that to other users); every program in
+# droid.conf runs as droid.
+exec supervisord -c /etc/supervisor/droid.conf
