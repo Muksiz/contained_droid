@@ -10,8 +10,14 @@ if [ ! -e /dev/kvm ]; then
     exit 1
 fi
 
-# Give droid access to /dev/kvm whatever group owns it on this host.
-if ! as_droid test -r /dev/kvm -a -w /dev/kvm; then
+# Give droid access to /dev/kvm. Hosts without udev (Docker Desktop's WSL VM)
+# leave it root-only, so open up the container's own device node first; if
+# that is not allowed (rootless engines), fall back to joining its group.
+can_use_kvm() { as_droid test -r /dev/kvm -a -w /dev/kvm; }
+if ! can_use_kvm; then
+    chmod a+rw /dev/kvm 2> /dev/null || true
+fi
+if ! can_use_kvm; then
     kvm_gid=$(stat -c %g /dev/kvm)
     kvm_group=$(getent group "$kvm_gid" | cut -d: -f1 || true)
     if [ -z "$kvm_group" ]; then
@@ -19,6 +25,10 @@ if ! as_droid test -r /dev/kvm -a -w /dev/kvm; then
         groupadd -g "$kvm_gid" "$kvm_group"
     fi
     usermod -aG "$kvm_group" droid
+fi
+if ! can_use_kvm; then
+    echo "ERROR: /dev/kvm exists but cannot be opened: $(ls -l /dev/kvm)" >&2
+    exit 1
 fi
 
 # Leftovers from a previous run of this same container would block a restart.
