@@ -1,7 +1,8 @@
 # contained_droid
 
-> **Status: work in progress.** The container builds and starts, but the
-> emulator is not yet confirmed to boot Android reliably. See the commit log.
+> **Status:** tested on Linux (Podman, KVM): Android boots, and both REAPER and
+> the `record` command capture the emulator's audio. Not yet confirmed on
+> Windows 11 / Docker Desktop.
 
 An Android emulator and a recorder (REAPER) sealed in one container. The only
 audio device inside the container is a virtual PulseAudio sink that the emulator
@@ -91,6 +92,10 @@ later boots take about a minute.
 2. Install your audiobook app, sign in, and download the book so playback does
    not depend on streaming.
 
+3. Turn Android's media volume all the way up (the speaker buttons beside the
+   emulator, while something is playing). It starts at about a third, which
+   makes recordings needlessly quiet.
+
 Everything on the Android device is kept in a Docker volume and survives
 restarts and image rebuilds.
 
@@ -106,14 +111,19 @@ docker exec contained-droid adb install /tmp/app.apk
 
 **With REAPER** (in the browser desktop)
 
-1. Dismiss the evaluation notice ("Still Evaluating").
-2. Open Options → Preferences → Audio → Device, choose **PulseAudio** as the
-   audio system and apply. The input is the emulator (`droid.monitor`).
-3. Insert a track (Ctrl+T), arm it for recording, and check that the meter
-   moves when Android plays something.
-4. Press record (Ctrl+R), then start playback in the Android app.
+REAPER starts already set to PulseAudio at 44.1 kHz with the emulator as its
+input, and `/recordings` as its recording folder.
 
-Media is saved to `/recordings` by default. Save the project there as well.
+1. Dismiss the evaluation notice ("Still Evaluating").
+2. Insert a track: Track → Insert new track (`Ctrl+T`).
+3. Click the track's input selector (it says "Input 1") and choose
+   Input: Stereo → Input 1 / Input 2. The default records the left channel only.
+4. Click the track's red arm button. The meter moves whenever Android plays
+   something.
+5. Press record (`Ctrl+R`), then start playback in the Android app.
+6. Press `Space` to stop and choose "Save All".
+
+Save the project under `/recordings` too, or it stays inside the container.
 
 **Without REAPER** — a one-line recorder that writes FLAC:
 
@@ -146,6 +156,7 @@ Edit `environment:` in `compose.yaml`, then run `docker compose up -d`.
 | `SCREEN`             | `1600x900x24` | Size of the browser desktop                          |
 | `EMULATOR_RAM_MB`    | `4096`        | RAM given to Android                                 |
 | `EMULATOR_CORES`     | `4`           | CPU cores given to Android                           |
+| `EMULATOR_AUDIO_BUFFER_MS` | `500`   | Audio buffer between Android and the recorder        |
 | `EMULATOR_DATA_SIZE` | `16G`         | Android storage; only applied when the device is first created |
 
 The Android version is a build argument (`ANDROID_API`, default 34) in the
@@ -167,7 +178,7 @@ virtualization (Intel VT-x / AMD-V) is enabled in the BIOS/UEFI and that the
 
 **The emulator is slow or the recording has dropouts**
 Android is rendered in software, so it needs CPU headroom. Raise
-`EMULATOR_CORES`, and give WSL more resources in `%UserProfile%\.wslconfig`
+`EMULATOR_AUDIO_BUFFER_MS` (for example to 1000) and `EMULATOR_CORES`, and give WSL more resources in `%UserProfile%\.wslconfig`
 (`memory=12GB`, `processors=8` under `[wsl2]`), followed by `wsl --shutdown`.
 Avoid heavy work on the PC while recording.
 

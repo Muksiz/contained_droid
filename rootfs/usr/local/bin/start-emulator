@@ -31,7 +31,10 @@ fi
 # Lock files survive an unclean stop and make the emulator refuse to start.
 rm -rf "$AVD_DIR"/*.lock
 
-export QEMU_AUDIO_DRV=pa
+# Play into the recorded sink rather than the default (discarded) one. The
+# emulator asks PulseAudio for a ~6 ms buffer, which underruns and leaves gaps
+# in the recording; nobody listens live, so trade latency for a large buffer.
+export QEMU_AUDIO_DRV=pa PULSE_SINK=droid PULSE_LATENCY_MSEC="$EMULATOR_AUDIO_BUFFER_MS"
 exec emulator -avd "$AVD" \
     -memory "$EMULATOR_RAM_MB" -cores "$EMULATOR_CORES" \
     -gpu swangle_indirect \

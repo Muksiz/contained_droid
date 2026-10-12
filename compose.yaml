@@ -18,6 +18,7 @@ services:
       SCREEN: 1600x900x24
       EMULATOR_RAM_MB: 4096
       EMULATOR_CORES: 4
+      EMULATOR_AUDIO_BUFFER_MS: 500 # raise if recordings have dropouts
       EMULATOR_DATA_SIZE: 16G # only applied when the Android device is first created
     volumes:
       - avd:/home/droid/.android # the Android device (apps, logins, downloads)

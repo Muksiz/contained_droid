@@ -1,7 +1,11 @@
-# The only audio device in the container is a null sink. The emulator plays
-# into it and recorders capture its monitor, so nothing from the host can leak in.
+# No audio hardware exists in the container, only two virtual sinks:
+#   droid    - the emulator plays here; recorders capture its monitor
+#   playback - default output for everything else (REAPER), simply discarded
+# Keeping REAPER's own output away from "droid" prevents it from being
+# recorded back into the take. Nothing from the host can get in either way.
 load-module module-native-protocol-unix
-load-module module-null-sink sink_name=droid rate=48000 channels=2 sink_properties=device.description=Android
+load-module module-null-sink sink_name=droid rate=44100 channels=2 sink_properties=device.description=Android
+load-module module-null-sink sink_name=playback rate=44100 channels=2 sink_properties=device.description=Discarded
 load-module module-always-sink
-set-default-sink droid
+set-default-sink playback
 set-default-source droid.monitor

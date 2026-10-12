@@ -10,4 +10,4 @@ fi
 out="/recordings/${1:-droid-$(date +%Y%m%d-%H%M%S)}.flac"
 echo "Recording to $out - press Ctrl+C to stop"
 exec ffmpeg -hide_banner -loglevel warning -stats \
-    -f pulse -i droid.monitor -ac 2 -ar 48000 -c:a flac "$out"
+    -f pulse -i droid.monitor -ac 2 -ar 44100 -c:a flac "$out"
