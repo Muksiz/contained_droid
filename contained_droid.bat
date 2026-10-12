@@ -1,12 +1,13 @@
 @echo off
 rem Starts or stops contained_droid. Double-click it, or put a shortcut to it
-rem on the desktop. Also usable as: contained_droid.bat start | stop
+rem on the desktop. Also usable as: contained_droid.bat start | stop | update
 setlocal
 cd /d "%~dp0"
 title contained_droid
 
 if /i "%~1"=="start" goto start
 if /i "%~1"=="stop" goto stop
+if /i "%~1"=="update" goto update
 
 :menu
 echo.
@@ -15,20 +16,33 @@ echo   ---------------
 echo   [1] Start and open the desktop in the browser
 echo   [2] Stop  (docker compose down - Android and settings are kept)
 echo   [3] Show status and recent log
+echo   [4] Update (git pull, rebuild if needed, then start)
 echo   [Q] Quit
 echo.
-choice /c 123Q /n /m "  Choose 1, 2, 3 or Q: "
-if errorlevel 4 exit /b 0
+choice /c 1234Q /n /m "  Choose 1, 2, 3, 4 or Q: "
+if errorlevel 5 exit /b 0
+if errorlevel 4 goto update
 if errorlevel 3 goto status
 if errorlevel 2 goto stop
 goto start
 
 :start
+set build=
+goto up
+
+:update
+echo.
+echo Fetching the latest version...
+git pull
+if errorlevel 1 goto pull_failed
+set build=--build
+
+:up
 call :need_docker
 if errorlevel 1 goto done
 echo.
 echo Starting the container...
-docker compose up -d
+docker compose up -d %build%
 if errorlevel 1 goto failed
 echo Waiting for the desktop...
 set tries=0
@@ -56,6 +70,12 @@ echo.
 docker compose ps
 echo.
 docker compose logs --tail 25
+goto done
+
+:pull_failed
+echo.
+echo git pull failed, nothing was changed. Is Git installed, and are there
+echo local edits to files in this folder? See the message above.
 goto done
 
 :failed

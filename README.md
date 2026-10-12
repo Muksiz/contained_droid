@@ -121,7 +121,8 @@ resulting image is several GB. Later starts take seconds.
 **Shortcut:** instead of typing commands, double-click `contained_droid.bat`
 in the project folder. It offers Start (starts Docker Desktop if needed, runs
 `docker compose up -d` and opens the desktop in your browser), Stop (`docker
-compose down`) and a status view. For a desktop icon, right-click the file →
+compose down`), a status view, and Update (`git pull`, then a start with
+`--build` so changes take effect). For a desktop icon, right-click the file →
 Show more options → Send to → Desktop (create shortcut). Use it after the
 first build described above has succeeded once.
 
