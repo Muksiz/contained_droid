@@ -198,8 +198,8 @@ Create a file named `.env` next to `compose.yaml` with the values you want to
 change, one `NAME=value` per line, then run `docker compose up -d`. For example:
 
 ```ini
-EMULATOR_CORES=8
-EMULATOR_AUDIO_BUFFER_MS=1000
+EMULATOR_CORES=6
+SCREEN=2560x1080x24
 ```
 
 `.env` is ignored by git, so your settings survive `git pull`.
@@ -209,7 +209,7 @@ EMULATOR_AUDIO_BUFFER_MS=1000
 | `SCREEN`             | `1920x1080x24` | Size of the browser desktop (width x height x depth) |
 | `EMULATOR_RAM_MB`    | `4096`        | RAM given to Android                                 |
 | `EMULATOR_CORES`     | `4`           | CPU cores given to Android                           |
-| `EMULATOR_AUDIO_BUFFER_MS` | `500`   | Audio buffer between Android and the recorder        |
+| `EMULATOR_AUDIO_BUFFER_MS` | `1000`  | Audio buffer between Android and the recorder        |
 | `EMULATOR_DATA_SIZE` | `16G`         | Android storage; only applied when the device is first created |
 
 The Android version is a build argument (`ANDROID_API`, default 34) in the
@@ -272,7 +272,7 @@ Then check that:
 
 **The emulator is slow or the recording has dropouts**
 Android is rendered in software, so it needs CPU headroom. Raise
-`EMULATOR_AUDIO_BUFFER_MS` (for example to 1000) and `EMULATOR_CORES`, and give WSL more resources in `%UserProfile%\.wslconfig`
+`EMULATOR_AUDIO_BUFFER_MS` (for example to 2000) and `EMULATOR_CORES`, and give WSL more resources in `%UserProfile%\.wslconfig`
 (`memory=12GB`, `processors=8` under `[wsl2]`), followed by `wsl --shutdown`.
 Avoid heavy work on the PC while recording.
 
