@@ -1,0 +1,7 @@
+# The only audio device in the container is a null sink. The emulator plays
+# into it and recorders capture its monitor, so nothing from the host can leak in.
+load-module module-native-protocol-unix
+load-module module-null-sink sink_name=droid rate=48000 channels=2 sink_properties=device.description=Android
+load-module module-always-sink
+set-default-sink droid
+set-default-source droid.monitor

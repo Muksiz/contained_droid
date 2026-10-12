@@ -1,0 +1,11 @@
+#!/bin/bash
+set -euo pipefail
+
+CONFIG_DIR="$HOME/.config/REAPER"
+
+# Seed the settings once; afterwards the volume keeps whatever REAPER saves.
+if [ ! -f "$CONFIG_DIR/reaper.ini" ]; then
+    cp /etc/reaper/reaper.ini "$CONFIG_DIR/reaper.ini"
+fi
+
+exec /opt/REAPER/reaper

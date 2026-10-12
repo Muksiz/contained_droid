@@ -1,0 +1,13 @@
+#!/bin/bash
+# Headless alternative to REAPER: records the emulator's audio to a FLAC file.
+# Usage: record [name]      (stop with Ctrl+C)
+set -euo pipefail
+
+if [ "$(id -u)" = 0 ]; then
+    exec setpriv --reuid droid --regid droid --init-groups "$0" "$@"
+fi
+
+out="/recordings/${1:-droid-$(date +%Y%m%d-%H%M%S)}.flac"
+echo "Recording to $out - press Ctrl+C to stop"
+exec ffmpeg -hide_banner -loglevel warning -stats \
+    -f pulse -i droid.monitor -ac 2 -ar 48000 -c:a flac "$out"

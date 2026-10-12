@@ -1,0 +1,29 @@
+name: contained-droid
+
+services:
+  droid:
+    build: .
+    image: contained-droid
+    container_name: contained-droid
+    init: true
+    devices:
+      - /dev/kvm
+    security_opt:
+      - label=disable # only matters on SELinux hosts (Fedora); ignored elsewhere
+    shm_size: 2gb
+    stop_grace_period: 45s
+    ports:
+      - "127.0.0.1:6080:6080" # noVNC desktop: http://localhost:6080
+    environment:
+      SCREEN: 1600x900x24
+      EMULATOR_RAM_MB: 4096
+      EMULATOR_CORES: 4
+      EMULATOR_DATA_SIZE: 16G # only applied when the Android device is first created
+    volumes:
+      - avd:/home/droid/.android # the Android device (apps, logins, downloads)
+      - reaper:/home/droid/.config/REAPER # REAPER settings and licence
+      - ./recordings:/recordings
+
+volumes:
+  avd:
+  reaper:
