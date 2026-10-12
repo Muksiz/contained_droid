@@ -208,7 +208,7 @@ SCREEN=2560x1080x24
 | -------------------- | ------------- | ---------------------------------------------------- |
 | `SCREEN`             | `1920x1080x24` | Size of the browser desktop (width x height x depth) |
 | `EMULATOR_RAM_MB`    | `4096`        | RAM given to Android                                 |
-| `EMULATOR_CORES`     | `4`           | CPU cores given to Android                           |
+| `EMULATOR_CORES`     | `8`           | CPU cores given to Android; lower it on CPUs with fewer than 12 threads |
 | `EMULATOR_AUDIO_BUFFER_MS` | `1000`  | Audio buffer between Android and the recorder        |
 | `EMULATOR_DATA_SIZE` | `16G`         | Android storage; only applied when the device is first created |
 
