@@ -40,6 +40,12 @@ for dir in /recordings /home/droid/.android /home/droid/.config/REAPER; do
     as_droid test -w "$dir" || chown droid:droid "$dir"
 done
 
+# adb run as root by an older version of this image may have left root-owned
+# keys behind, which the emulator's own adb server (droid) cannot read.
+for key in /home/droid/.android/adbkey /home/droid/.android/adbkey.pub; do
+    [ ! -e "$key" ] || chown droid:droid "$key"
+done
+
 # supervisord stays root so it can attach the services' output to the
 # container log (Docker refuses that to other users); every program in
 # droid.conf runs as droid.

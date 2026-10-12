@@ -53,6 +53,10 @@ RUN useradd -m -u 1000 -s /bin/bash droid \
     && install -d -o droid -g droid /home/droid/.android /home/droid/.config \
         /home/droid/.config/REAPER /recordings
 
+# Helper scripts take precedence over the SDK tools they wrap (adb).
+ENV ADB=/opt/android-sdk/platform-tools/adb \
+    PATH=/usr/local/bin:$PATH
+
 COPY rootfs/ /
 RUN chmod +x /usr/local/bin/*
 

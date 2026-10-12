@@ -1,8 +1,11 @@
 # contained_droid
 
-> **Status:** tested on Linux (Podman, KVM): Android boots, and both REAPER and
-> the `record` command capture the emulator's audio. Not yet confirmed on
-> Windows 11 / Docker Desktop.
+> **Status:** works on Linux (Podman) and on Windows 11 (Docker Desktop):
+> Android boots and both REAPER and the `record` command capture the
+> emulator's audio. **Known problem:** recordings contain crackle and
+> occasional short dropouts that come from the emulator's own audio output.
+> No setting tried so far removes them, so the result is not yet good enough
+> for audiobooks.
 
 An Android emulator and a recorder (REAPER) sealed in one container. The only
 audio device inside the container is a virtual PulseAudio sink that the emulator
@@ -214,6 +217,7 @@ SCREEN=2560x1080x24
 | `EMULATOR_RAM_MB`    | `4096`        | RAM given to Android                                 |
 | `EMULATOR_CORES`     | `8`           | CPU cores given to Android; lower it on CPUs with fewer than 12 threads |
 | `EMULATOR_AUDIO_BUFFER_MS` | `1000`  | Audio buffer between Android and the recorder        |
+| `EMULATOR_SAMPLE_RATE` | `44100`     | Experimental: rate of the emulator's audio output. `48000` works but did not reduce the crackle |
 | `EMULATOR_DATA_SIZE` | `16G`         | Android storage; only applied when the device is first created |
 
 The Android version is a build argument (`ANDROID_API`, default 34) in the
