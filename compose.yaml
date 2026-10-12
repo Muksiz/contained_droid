@@ -47,6 +47,9 @@ services:
       EMULATOR_CORES: ${EMULATOR_CORES:-8}
       EMULATOR_AUDIO_BUFFER_MS: ${EMULATOR_AUDIO_BUFFER_MS:-1000} # raise if recordings have dropouts
       EMULATOR_DATA_SIZE: ${EMULATOR_DATA_SIZE:-16G} # only applied when the Android device is first created
+      # Experimental: rate at which the emulator hands audio over. Android mixes
+      # at 48000; 44100 (the emulator's own default) makes it convert internally.
+      QEMU_AUDIO_DAC_FIXED_FREQ: ${EMULATOR_SAMPLE_RATE:-44100}
     volumes:
       - avd:/home/droid/.android # the Android device (apps, logins, downloads)
       - reaper:/home/droid/.config/REAPER # REAPER settings and licence
