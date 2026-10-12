@@ -118,6 +118,13 @@ docker compose up -d --build
 The first build downloads the Android system image and takes a while; the
 resulting image is several GB. Later starts take seconds.
 
+**Shortcut:** instead of typing commands, double-click `contained_droid.bat`
+in the project folder. It offers Start (starts Docker Desktop if needed, runs
+`docker compose up -d` and opens the desktop in your browser), Stop (`docker
+compose down`) and a status view. For a desktop icon, right-click the file →
+Show more options → Send to → Desktop (create shortcut). Use it after the
+first build described above has succeeded once.
+
 ### 4. Open the desktop
 
 Browse to <http://localhost:6080>. You get a desktop with two windows: the
