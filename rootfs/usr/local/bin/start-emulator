@@ -34,5 +34,5 @@ rm -rf "$AVD_DIR"/*.lock
 export QEMU_AUDIO_DRV=pa
 exec emulator -avd "$AVD" \
     -memory "$EMULATOR_RAM_MB" -cores "$EMULATOR_CORES" \
-    -gpu swiftshader_indirect \
+    -gpu swangle_indirect \
     -no-snapshot -no-boot-anim -no-metrics
