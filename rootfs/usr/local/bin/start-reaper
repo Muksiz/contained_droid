@@ -7,5 +7,8 @@ CONFIG_DIR="$HOME/.config/REAPER"
 if [ ! -f "$CONFIG_DIR/reaper.ini" ]; then
     cp /etc/reaper/reaper.ini "$CONFIG_DIR/reaper.ini"
 fi
+# Settings seeded by older images ask for 44100 Hz, which would make
+# PulseAudio resample the 48000 Hz "droid" source.
+sed -i 's/^linux_audio_srate=44100$/linux_audio_srate=48000/' "$CONFIG_DIR/reaper.ini"
 
 exec /opt/REAPER/reaper

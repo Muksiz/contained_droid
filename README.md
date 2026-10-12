@@ -1,38 +1,67 @@
 # contained_droid
 
-> **Status:** works on Linux (Podman) and on Windows 11 (Docker Desktop):
-> Android boots and both REAPER and the `record` command capture the
-> emulator's audio. **Known problem:** recordings contain crackle and
-> occasional short dropouts that come from the emulator's own audio output.
-> No setting tried so far removes them, so the result is not yet good enough
-> for audiobooks.
+> **Status:** on Linux (Podman), REAPER and the `record` command capture the
+> emulator's audio without clicks, sample for sample as Android produced it.
+> This was checked with a time-code test file in which every sample can be
+> traced back to its position in the source. One caveat remains: while
+> Android's screen is on, the emulator is occasionally held up long enough for
+> Android to drop 40–70 ms of audio (5 times in 30 minutes of testing, each
+> time as Android redrew part of the screen). With the screen off, 25 minutes
+> of test recordings had no loss once playback was under way — see "Record"
+> below. Windows (Docker Desktop) has not been re-tested since the audio path
+> was reworked.
 
 An Android emulator and a recorder (REAPER) sealed in one container. The only
-audio device inside the container is a virtual PulseAudio sink that the emulator
-plays into, so a recording can only ever contain the emulator's audio — never
+audio devices inside the container are virtual PulseAudio devices fed by the
+emulator, so a recording can only ever contain the emulator's audio — never
 sounds from the host desktop.
 
 ```
 ┌──────────────────────────── container ────────────────────────────┐
-│  Android emulator ──► PulseAudio null sink "droid"                │
-│                              │ droid.monitor                      │
-│                              ├──► REAPER      ──┐                 │
-│                              └──► record (FLAC) ┴─► /recordings ──┼─► .\recordings
+│  Android emulator ──► sink "emulator" ──► droid-audio (clean-up)  │
+│                              ┌────────────────┘                   │
+│                              ├──► source "droid" ──► REAPER ──┐   │
+│                              └──► record (FLAC) ──────────────┴─► /recordings ┼─► .\recordings
 │  Xvfb desktop ──► noVNC ──────────────────────────────────────────┼─► http://localhost:6080
 └───────────────────────────────────────────────────────────────────┘
 ```
 
 ## How it works
 
-1. The container runs its own PulseAudio server with exactly one device: a
-   virtual "null sink" called `droid` that is not connected to any hardware.
-2. The Android emulator plays into that sink, because it is the only output
-   that exists.
-3. Every sink has a "monitor" source carrying whatever is played into it.
-   `droid.monitor` is the default input, so REAPER and the `record` command
-   capture from it.
+1. The container runs its own PulseAudio server with no hardware behind it.
+   The Android emulator plays into a virtual "null sink" called `emulator`,
+   at 48 kHz — the rate Android mixes at, so nothing is resampled.
+2. `droid-audio` reads that sink and removes the emulator's filler blocks (see
+   below). What is left is the audio exactly as Android produced it.
+3. The cleaned stream goes to a PulseAudio source called `droid`, which REAPER
+   records from, and to the `record` command.
 4. Recordings are written to `/recordings`, which is the `recordings` folder on
    the host.
+
+### Why the clean-up step exists
+
+Recorded straight from the emulator, the audio crackles and loses short
+passages. Two things in the emulator cause that:
+
+- Its sound card pads the output with a 0.7 ms block of filler whenever the
+  host asks for audio a moment before Android has delivered the next chunk —
+  about ten times a second. Each block is a click. The filler is not silence
+  but a fixed pattern (every sample is +2 or −2), so `droid-audio` can
+  recognise and remove it without touching anything else.
+- On Play Store images the emulator runs an `adb` command every 10 seconds.
+  Starting it freezes the emulator for 100–200 ms, and Android discards the
+  audio it could not deliver in that time. `start-emulator` switches that
+  polling off (`-feature -PlayStoreImage`; the Play Store itself still works).
+
+- Android itself throws audio away when the emulator is held up for more than
+  about 50 ms. With the screen on that still happens now and then, because
+  Android is drawn by software on the same machine. Switching Android's
+  screen off while recording avoids it.
+
+Neither recorder runs on a clock of its own: they receive every frame once,
+whenever it arrives. That matters, because the emulator delivers audio in
+bursts and never exactly in real time, and a recorder that insists on real
+time has to invent or drop samples to keep up.
 
 Only two things cross the container boundary: that folder, and the browser
 desktop on port 6080 (picture, mouse and keyboard only — no audio).
@@ -161,10 +190,24 @@ docker exec contained-droid adb install /tmp/app.apk
 
 ### 6. Record
 
+Start the recorder, start playback in the Android app, and then **switch
+Android's screen off**: click the power button in the toolbar beside the
+emulator, or run
+
+```powershell
+docker exec contained-droid adb shell input keyevent KEYCODE_SLEEP
+```
+
+Playback continues with the screen dark. Without this, a recording loses a
+few short passages (40–70 ms each) per quarter of an hour, because drawing
+the screen occasionally stalls the emulator. Click the power button again
+(or send `KEYCODE_WAKEUP`) when you need the screen back.
+
 **With REAPER** (in the browser desktop)
 
-REAPER starts already set to PulseAudio at 44.1 kHz with the emulator as its
-input, and `/recordings` as its recording folder.
+REAPER starts already set to PulseAudio at 48 kHz with the emulator as its
+input, and `/recordings` as its recording folder. Keep the project at 48 kHz
+while recording and convert when you render, if you need another rate.
 
 1. Dismiss the evaluation notice ("Still Evaluating").
 2. Insert a track: Track → Insert new track (`Ctrl+T`).
@@ -177,7 +220,8 @@ input, and `/recordings` as its recording folder.
 
 Save the project under `/recordings` too, or it stays inside the container.
 
-**Without REAPER** — a one-line recorder that writes FLAC:
+**Without REAPER** — a one-line recorder that writes FLAC (48 kHz, 16 bit,
+stereo; the samples are exactly the ones Android produced):
 
 ```powershell
 docker exec -it contained-droid record my-audiobook
@@ -216,8 +260,7 @@ SCREEN=2560x1080x24
 | `SCREEN`             | `1920x1080x24` | Size of the browser desktop (width x height x depth) |
 | `EMULATOR_RAM_MB`    | `4096`        | RAM given to Android                                 |
 | `EMULATOR_CORES`     | `8`           | CPU cores given to Android; lower it on CPUs with fewer than 12 threads |
-| `EMULATOR_AUDIO_BUFFER_MS` | `1000`  | Audio buffer between Android and the recorder        |
-| `EMULATOR_SAMPLE_RATE` | `44100`     | Experimental: rate of the emulator's audio output. `48000` works but did not reduce the crackle |
+| `EMULATOR_AUDIO_BUFFER_MS` | `200`   | Cushion between the emulator and the recorders; rarely needs changing |
 | `EMULATOR_DATA_SIZE` | `16G`         | Android storage; only applied when the device is first created |
 
 The Android version is a build argument (`ANDROID_API`, default 34) in the
@@ -280,16 +323,21 @@ Then check that:
 
 **The emulator is slow or the recording has dropouts**
 Android is rendered in software, so it needs CPU headroom. Raise
-`EMULATOR_AUDIO_BUFFER_MS` (for example to 2000) and `EMULATOR_CORES`, and give WSL more resources in `%UserProfile%\.wslconfig`
+`EMULATOR_CORES`, and give WSL more resources in `%UserProfile%\.wslconfig`
 (`memory=12GB`, `processors=8` under `[wsl2]`), followed by `wsl --shutdown`.
-Avoid heavy work on the PC while recording.
+Avoid heavy work on the PC while recording: if the emulator is held up for
+more than about 100 ms, Android throws away the audio it could not deliver.
+Once a minute `docker compose logs` reports how many filler blocks
+`droid-audio` removed; a few hundred at the start of playback and a handful
+per minute afterwards is normal.
 
 **Seeing what is going on**
 
 ```powershell
 docker compose logs -f
 docker exec contained-droid adb devices
-docker exec contained-droid pactl list short sink-inputs   # the emulator should be listed
+docker exec contained-droid pactl list short sink-inputs      # the emulator should be listed while it plays
+docker exec contained-droid pactl list short source-outputs   # droid-audio, and REAPER while its track is armed
 ```
 
 **Shell scripts fail with `\r` or "no such file or directory"**

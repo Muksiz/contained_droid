@@ -1,0 +1,166 @@
+#!/usr/bin/env python3
+"""Cleans up the emulator's audio and hands it to the recorders.
+
+The emulator's sound card (virtio-snd) pads its output with a short block of
+filler whenever the host asks for audio a moment before Android has delivered
+the next period. Recorded as is, every block is a click. The filler is not
+real silence but a fixed pattern in which every sample is +2 or -2, so it can
+be removed exactly; what is left is the stream Android produced, sample for
+sample.
+
+  emulator -> sink "emulator" -> this program -+-> source "droid" (REAPER)
+                                               +-> $SOCKET (the record command)
+
+Both outputs carry the same samples. Neither is tied to a clock: a recorder
+simply receives every frame once, however unevenly the emulator delivers them.
+"""
+import os
+import selectors
+import signal
+import socket
+import subprocess
+import sys
+import time
+
+import numpy as np
+
+RATE = 48000
+FRAME = 4  # bytes: 16 bit, stereo
+# The emulator inserts 1/16 of an ALSA period at a time (34 frames with the
+# stock audio HAL). Shorter runs of +-2 samples are left alone: they can occur
+# in the noise floor of real audio.
+MIN_FILLER_FRAMES = 8
+SOCKET = os.path.join(os.environ["XDG_RUNTIME_DIR"], "droid-audio.sock")
+# Read by PulseAudio's module-pipe-source, see /etc/pulse/droid.pa.
+FIFO = os.path.join(os.environ["XDG_RUNTIME_DIR"], "droid-audio.fifo")
+MAX_QUEUE = 16 * RATE * FRAME  # a reader this far behind is dropped
+
+
+class Filter:
+    """Removes filler blocks from a stream of interleaved s16le frames."""
+
+    def __init__(self):
+        self.tail = np.zeros((0, 2), dtype="<i2")
+        self.frames = self.removed = self.blocks = 0
+
+    def feed(self, frames):
+        frames = np.concatenate([self.tail, frames])
+        filler = (np.abs(frames[:, 0]) == 2) & (np.abs(frames[:, 1]) == 2)
+        # A run that reaches the end may continue in the next chunk: keep it.
+        end = len(frames)
+        while end > 0 and filler[end - 1]:
+            end -= 1
+        self.tail = frames[end:].copy()
+        frames, filler = frames[:end], filler[:end]
+
+        edges = np.diff(np.concatenate(([0], filler.astype(np.int8), [0])))
+        keep = np.ones(len(frames), dtype=bool)
+        for start, stop in zip(np.nonzero(edges == 1)[0], np.nonzero(edges == -1)[0]):
+            if stop - start >= MIN_FILLER_FRAMES:
+                keep[start:stop] = False
+                self.blocks += 1
+        self.frames += len(frames)
+        self.removed += len(frames) - int(keep.sum())
+        return frames[keep].tobytes()
+
+
+class Writer:
+    """A non-blocking output with its own queue, so a slow reader never
+    holds up the capture."""
+
+    def __init__(self, fd, sel):
+        self.fd, self.sel = fd, sel
+        self.queue = bytearray()
+        os.set_blocking(fd, False)
+        sel.register(fd, selectors.EVENT_READ, self)  # only to notice a hangup
+
+    def send(self, data):
+        if self.fd is not None:
+            self.queue += data
+            self.flush()
+
+    def flush(self):
+        try:
+            while self.queue:
+                del self.queue[: os.write(self.fd, self.queue[: 1 << 16])]
+        except BlockingIOError:
+            pass
+        except OSError:
+            return self.drop()
+        if len(self.queue) > MAX_QUEUE:
+            return self.drop()
+        want = selectors.EVENT_READ | (selectors.EVENT_WRITE if self.queue else 0)
+        self.sel.modify(self.fd, want, self)
+
+    def hung_up(self):
+        try:
+            return not os.read(self.fd, 4096)
+        except BlockingIOError:
+            return False
+        except OSError:
+            return True
+
+    def drop(self):
+        if self.fd is not None:
+            self.sel.unregister(self.fd)
+            os.close(self.fd)
+            self.fd = None
+            self.queue.clear()
+
+
+def main():
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
+    sel = selectors.DefaultSelector()
+
+    capture = subprocess.Popen(
+        ["parec", "--device=emulator.monitor", "--latency-msec=20",
+         "--client-name=droid-audio", "--raw", "--format=s16le",
+         f"--rate={RATE}", "--channels=2"],
+        stdout=subprocess.PIPE, bufsize=0)
+    source = Writer(os.open(FIFO, os.O_WRONLY | os.O_NONBLOCK), sel)
+
+    if os.path.exists(SOCKET):
+        os.unlink(SOCKET)
+    server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    server.bind(SOCKET)
+    server.listen()
+    sel.register(server, selectors.EVENT_READ, "accept")
+    sel.register(capture.stdout, selectors.EVENT_READ, "capture")
+
+    clean = Filter()
+    readers = []
+    pending = b""
+    report = time.monotonic() + 60
+    while True:
+        for key, events in sel.select(timeout=5):
+            if key.data == "capture":
+                data = os.read(capture.stdout.fileno(), 1 << 16)
+                if not data:
+                    sys.exit("droid-audio: parec stopped")
+                data = pending + data
+                whole = len(data) // FRAME * FRAME
+                pending = data[whole:]
+                out = clean.feed(np.frombuffer(data[:whole], dtype="<i2").reshape(-1, 2))
+                readers = [r for r in readers if r.fd is not None]
+                for writer in [source, *readers]:
+                    writer.send(out)
+            elif key.data == "accept":
+                conn, _ = server.accept()
+                readers.append(Writer(conn.detach(), sel))
+            elif events & selectors.EVENT_WRITE:
+                key.data.flush()
+            elif key.data.hung_up():  # a record command went away
+                key.data.drop()
+        if source.fd is None or capture.poll() is not None:
+            sys.exit("droid-audio: PulseAudio connection lost")
+        if time.monotonic() >= report:
+            if clean.blocks:
+                print(f"droid-audio: removed {clean.blocks} filler blocks "
+                      f"({clean.removed} of {clean.frames} frames) in the last minute",
+                      flush=True)
+            clean.frames = clean.removed = clean.blocks = 0
+            report += 60
+
+
+if __name__ == "__main__":
+    main()

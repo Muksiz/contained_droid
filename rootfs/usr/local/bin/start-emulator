@@ -31,14 +31,21 @@ fi
 # Lock files survive an unclean stop and make the emulator refuse to start.
 rm -rf "$AVD_DIR"/*.lock
 
-# Play into the recorded sink rather than the default (discarded) one. The
-# emulator asks PulseAudio for a ~6 ms buffer, which underruns and leaves gaps
-# in the recording; nobody listens live, so trade latency for a large buffer.
-export QEMU_AUDIO_DRV=pa PULSE_SINK=droid PULSE_LATENCY_MSEC="$EMULATOR_AUDIO_BUFFER_MS"
-# A larger mix buffer inside qemu (default 4096 frames) measurably reduces
-# dropouts; it does not remove them.
-export QEMU_PA_SAMPLES=16384
+# Play into the "emulator" sink, at Android's own mixing rate so that the
+# emulator does not resample. droid-audio picks the stream up from there.
+export QEMU_AUDIO_DRV=pa PULSE_SINK=emulator QEMU_AUDIO_DAC_FIXED_FREQ=48000
+# The emulator asks PulseAudio for a ~10 ms buffer, which underruns. Nobody
+# listens live, so trade latency for a cushion. Keep both buffers modest: until
+# they have filled up the emulator pads its output with filler (removed again
+# by droid-audio), and huge buffers take many minutes to fill.
+export PULSE_LATENCY_MSEC="$EMULATOR_AUDIO_BUFFER_MS" QEMU_PA_SAMPLES=2048
+# -feature -PlayStoreImage only removes the "Google Play" page from the
+# emulator's settings window; the Play Store inside Android is unaffected.
+# With the page present the emulator runs "adb shell dumpsys package ..."
+# every 10 seconds, and forking a process of several GB freezes it for
+# 100-200 ms each time - long enough for Android to throw audio away.
 exec emulator -avd "$AVD" \
     -memory "$EMULATOR_RAM_MB" -cores "$EMULATOR_CORES" \
     -gpu swangle_indirect \
+    -feature -PlayStoreImage \
     -no-snapshot -no-boot-anim -no-metrics

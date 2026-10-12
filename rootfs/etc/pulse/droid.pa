@@ -1,11 +1,17 @@
-# No audio hardware exists in the container, only two virtual sinks:
-#   droid    - the emulator plays here; recorders capture its monitor
-#   playback - default output for everything else (REAPER), simply discarded
-# Keeping REAPER's own output away from "droid" prevents it from being
-# recorded back into the take. Nothing from the host can get in either way.
+# No audio hardware exists in the container, only virtual devices:
+#   emulator - sink the emulator plays into. Its raw output contains filler
+#              blocks (clicks), so nothing records from here directly.
+#   droid    - source carrying the cleaned stream; droid-audio reads the
+#              "emulator" sink, removes the filler and writes the result into
+#              this pipe. REAPER records from it. A pipe source has no clock of
+#              its own, so every frame is delivered exactly once.
+#   playback - default output for everything else (REAPER), simply discarded.
+# Everything runs at 48000 Hz, the rate Android mixes at, so no stage
+# resamples. Nothing from the host can get in either way.
 load-module module-native-protocol-unix
-load-module module-null-sink sink_name=droid rate=44100 channels=2 sink_properties=device.description=Android
-load-module module-null-sink sink_name=playback rate=44100 channels=2 sink_properties=device.description=Discarded
+load-module module-null-sink sink_name=emulator rate=48000 channels=2 format=s16le sink_properties=device.description=Emulator
+load-module module-pipe-source source_name=droid file=/run/user/1000/droid-audio.fifo rate=48000 channels=2 format=s16le source_properties=device.description=Android
+load-module module-null-sink sink_name=playback rate=48000 channels=2 sink_properties=device.description=Discarded
 load-module module-always-sink
 set-default-sink playback
-set-default-source droid.monitor
+set-default-source droid
